@@ -111,6 +111,8 @@ static int ping( const char* dstIp, unsigned int packetLen )
   int errCode = 0;
   unsigned int hdrSize = sizeof(struct iphdr) + sizeof(struct icmphdr);
   unsigned int payloadLen = packetLen - hdrSize;
+  if(payloadLen <= 0)
+    return -1;
   unsigned char* packet = (unsigned char*)malloc(packetLen);
   memset( packet, 0, packetLen-1);
 
@@ -322,7 +324,8 @@ int checkMTU( const char* dstIp, unsigned int packetLen )
 int searchMTU(const char* dstIp, unsigned int maxMTU)
 {
   int mtu;
-  for(mtu=maxMTU;mtu>0;mtu--)
+  int headerLen = sizeof(struct iphdr) + sizeof(struct icmphdr);
+  for(mtu=maxMTU;mtu>headerLen;mtu--)
   {
     int mtuResult = checkMTU(dstIp, mtu);
     if(mtuResult == PING_MTU_OK)
