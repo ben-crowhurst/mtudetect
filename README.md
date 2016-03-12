@@ -21,3 +21,7 @@ As root execute the following command.
 
 	# ./mtudetect 8.8.8.8
 
+License
+-------
+
+This application is published under GPLv2 license.
