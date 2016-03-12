@@ -186,7 +186,6 @@ static int ping( const char* dstIp, unsigned int packetLen )
 
 
 #define RECEIVE_SIZE 65536
-#define WAIT_MICROS 100000
 
 
 /**
