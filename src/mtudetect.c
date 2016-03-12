@@ -284,6 +284,12 @@ int checkMTU( const char* dstIp, unsigned int packetLen )
 
 
 
+/**
+ * Searches the MTU by decreasing packet size and sending pings to a host.
+ * @param dstIp The ip of the host.
+ * @param maxMTU The MTU to decrease from.
+ * @return The MTU or -1 when an error occurs.
+ */
 int searchMTU(const char* dstIp, unsigned int maxMTU)
 {
   int mtu;
