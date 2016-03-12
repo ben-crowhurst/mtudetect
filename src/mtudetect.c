@@ -108,6 +108,7 @@ static void fillInTestData( unsigned char* dst, unsigned int size )
  */
 static int ping( const char* dstIp, unsigned int packetLen )
 {
+  //printf("mtu: %d\n", packetLen);
   int errCode = 0;
   unsigned int hdrSize = sizeof(struct iphdr) + sizeof(struct icmphdr);
   unsigned int payloadLen = packetLen - hdrSize;
@@ -223,7 +224,7 @@ int waitForPingAnswer(int* type, int* code)
   }
 
   int iOne = 1;
-  if( setsockopt( sock, IPPROTO_IP, IP_HDRINCL, &iOne, sizeof(iOne) ) != 0 )
+  if( setsockopt( sock, IPPROTO_IP, IP_HDRINCL, &iOne, sizeof(iOne) ) < 0 )
   {
     errCode = errno;
     free(packet);
@@ -330,3 +331,56 @@ int searchMTU(const char* dstIp, unsigned int maxMTU)
   }
   return GENERAL_PROBLEM;
 }
+
+
+
+
+
+/*
+int interval(const char* dstIp, unsigned int minMTU, unsigned int maxMTU)
+{
+  int lowerMTUResult = checkMTU(dstIp, minMTU);
+  int upperMTUResult = checkMTU(dstIp, maxMTU);
+
+  if(lowerMTUResult == GENERAL_PROBLEM)
+    return -2;
+  if(upperMTUResult == GENERAL_PROBLEM)
+    return -2;
+
+  if(lowerMTUResult == PING_MTU_TOO_BIG &&
+     upperMTUResult == PING_MTU_TOO_BIG)
+    return -1;
+
+  if(lowerMTUResult == PING_MTU_OK &&
+     upperMTUResult == PING_MTU_OK)
+    return -1;
+
+  if(minMTU+1 == maxMTU)
+    return minMTU;
+
+  int centerMTU = (minMTU + maxMTU) / 2;
+  int part1 = interval(dstIp, minMTU, centerMTU);
+  if(part1 > 0)
+    return part1;
+  int part2 = interval(dstIp, centerMTU, maxMTU);
+  if(part2 > 0)
+    return part2;
+  return -1;
+}
+*/
+
+
+
+/**
+ * Searches the MTU by decreasing packet size and sending pings to a host.
+ * @param dstIp The ip of the host.
+ * @param maxMTU The MTU to decrease from.
+ * @return The MTU or -1 when an error occurs.
+ */
+/*
+int searchMTU(const char* dstIp, unsigned int maxMTU)
+{
+  int headerLen =  sizeof(struct iphdr) + sizeof(struct icmphdr);
+  return interval(dstIp, headerLen+1, maxMTU);
+}
+*/
