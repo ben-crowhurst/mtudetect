@@ -195,7 +195,6 @@ int waitForPingAnswer(int* type, int* code)
   if( sock == -1 )
   {
     errCode = errno;
-    //perror("waitForPingAnswer");
     free(packet);
     close(sock);
     return errCode;
@@ -205,13 +204,22 @@ int waitForPingAnswer(int* type, int* code)
   if( setsockopt( sock, IPPROTO_IP, IP_HDRINCL, &iOne, sizeof(iOne) ) != 0 )
   {
     errCode = errno;
-    //perror("waitForPingAnswer");
     free(packet);
     close(sock);
     return errCode;
   }
 
-  usleep(WAIT_MICROS);
+  struct timeval tv;
+  tv.tv_sec = 0;
+  tv.tv_usec = WAIT_MICROS;
+  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) 
+  {
+    errCode = errno;
+    free(packet);
+    close(sock);
+    return errCode;
+  }
+
   struct sockaddr saddr;
   socklen_t saddr_size = 0;
 
@@ -219,7 +227,6 @@ int waitForPingAnswer(int* type, int* code)
   if(lengthReceived <= 0)
   {
     errCode = errno;
-    //perror("waitForPingAnswer");
     free(packet);
     close(sock);
     return errCode;
