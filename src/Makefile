@@ -1,6 +1,6 @@
 all: mtudetect
 
-CFLAGS += -Wall
+CFLAGS += -Wall -O2
 RM="rm"
 
 mtudetect: mtudetect.h mtudetect.c main.c
