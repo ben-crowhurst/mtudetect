@@ -41,7 +41,11 @@ int main( int argc, char *argv[] )
     fprintf(stderr, "Usage: mtudetect <ip>\n");
     return 1;
   }
-  int result = searchMTU(argv[1], 1500);//65536);
+#ifndef PERFORMANCE
+  int result = searchMTU(argv[1], 1500);
+#else
+  int result = searchMTU(argv[1], 65536);
+#endif
   if(result < 0)
   {
     fprintf(stderr, "An error occurred.\n");

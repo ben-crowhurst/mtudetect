@@ -315,6 +315,7 @@ int checkMTU( const char* dstIp, unsigned int packetLen )
 }
 
 
+#ifndef PERFORMANCE 
 
 /**
  * Searches the MTU by decreasing packet size and sending pings to a host.
@@ -337,9 +338,10 @@ int searchMTU(const char* dstIp, unsigned int maxMTU)
 
 
 
+#else
 
 
-/*
+
 int interval(const char* dstIp, unsigned int minMTU, unsigned int maxMTU)
 {
   int lowerMTUResult = checkMTU(dstIp, minMTU);
@@ -370,7 +372,6 @@ int interval(const char* dstIp, unsigned int minMTU, unsigned int maxMTU)
     return part2;
   return -1;
 }
-*/
 
 
 
@@ -380,10 +381,10 @@ int interval(const char* dstIp, unsigned int minMTU, unsigned int maxMTU)
  * @param maxMTU The MTU to decrease from.
  * @return The MTU or -1 when an error occurs.
  */
-/*
 int searchMTU(const char* dstIp, unsigned int maxMTU)
 {
   int headerLen =  sizeof(struct iphdr) + sizeof(struct icmphdr);
   return interval(dstIp, headerLen+1, maxMTU);
 }
-*/
+
+#endif
