@@ -1,11 +1,17 @@
-all: mtudetect
-
 CFLAGS += -Wall -O2
 RM="rm"
+OBJECTS=mtudetect.o main.o
+TARGET=mtudetect
 
-mtudetect: mtudetect.h mtudetect.c main.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -fPIC -DWAIT_MICROS=100000 -D_GNU_SOURCE -o $@ $^
+all: $(TARGET)
 
+$(TARGET): $(OBJECTS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -fPIC -D_GNU_SOURCE -o $@ $^
+
+mtudetect.o: mtudetect.h
+main.o: mtudetect.h
+
+.PHONY: clean 
 clean:
-	$(RM) *.o > /dev/null 2>&1
-	$(RM) mtudetect
+	-rm $(OBJECTS) $(TARGET)
+

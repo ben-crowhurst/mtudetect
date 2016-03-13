@@ -29,6 +29,8 @@
 #define PING_FORBIDDEN 2
 #define GENERAL_PROBLEM 3
 
+#define WAIT_MICROS 100000
+
 int checkMTU(const char* dstIp, unsigned int packetLen);
 int searchMTU(const char* dstIp, unsigned int maxMTU);
 const char* getReturnValueText(int returnValue);
