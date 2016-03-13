@@ -150,6 +150,7 @@ static int ping( const char* dstIp, unsigned int packetLen )
   if( sock == -1 )
   {
     errCode = errno;
+    perror("Error.send: create socket");
     free(packet);
     return errCode;
   }
@@ -158,6 +159,7 @@ static int ping( const char* dstIp, unsigned int packetLen )
   if( setsockopt( sock, IPPROTO_IP, IP_HDRINCL, &iOne, sizeof(iOne) ) != 0 )
   {
     errCode = errno;
+    perror("Error.send: header include");
     free(packet);
     close(sock);
     return errCode;
@@ -172,6 +174,7 @@ static int ping( const char* dstIp, unsigned int packetLen )
   if( packetLen != lengthSent )
   {
     errCode = errno;
+    perror("Error.send: sendTo");
     free(packet);
     close(sock);
     return errCode;
@@ -200,7 +203,7 @@ static void processPacket(unsigned char* packet, ssize_t lengthReceived, int* ty
   struct icmphdr* icmpHeader = (struct icmphdr*)(packet + sizeof(struct iphdr));
   *type = icmpHeader->type;
   *code = icmpHeader->code;
-//  printf("type:%d, code:%d, packetlength:%d\n", icmpHeader->type, icmpHeader->code, (int)lengthReceived);
+  printf("type:%d, code:%d, packetlength:%d\n", icmpHeader->type, icmpHeader->code, (int)lengthReceived);
 }
 
 
@@ -219,6 +222,7 @@ int waitForPingAnswer(int* type, int* code)
   if( sock == -1 )
   {
     errCode = errno;
+    perror("Error.receive: create socket");
     free(packet);
     close(sock);
     return errCode;
@@ -228,6 +232,7 @@ int waitForPingAnswer(int* type, int* code)
   if( setsockopt( sock, IPPROTO_IP, IP_HDRINCL, &iOne, sizeof(iOne) ) < 0 )
   {
     errCode = errno;
+    perror("Error.receive: header include");
     free(packet);
     close(sock);
     return errCode;
@@ -239,6 +244,7 @@ int waitForPingAnswer(int* type, int* code)
   if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) 
   {
     errCode = errno;
+    perror("Error.receive: timeout");
     free(packet);
     close(sock);
     return errCode;
@@ -251,6 +257,7 @@ int waitForPingAnswer(int* type, int* code)
   if(lengthReceived <= 0)
   {
     errCode = errno;
+    perror("Error.receive: recvfrom");
     free(packet);
     close(sock);
     return errCode;
@@ -302,6 +309,12 @@ int checkMTU( const char* dstIp, unsigned int packetLen )
     return PING_MTU_OK;
   }
   else
+  if(type == 3 && code == 13)
+  {
+    // Communication administratively prohibited
+    return PING_FORBIDDEN;
+  }
+  else
   if(type == 3 && code == 4)
   {
     // Fragmentation needed
@@ -314,76 +327,16 @@ int checkMTU( const char* dstIp, unsigned int packetLen )
 }
 
 
-#ifndef PERFORMANCE 
 
-/**
- * Searches the MTU by decreasing packet size and sending pings to a host.
- * @param dstIp The ip of the host.
- * @param maxMTU The MTU to decrease from.
- * @return The MTU or -1 when an error occurs.
- */
-int searchMTU(const char* dstIp, unsigned int maxMTU)
+char* returnValueText[] =
 {
-  int mtu;
-  int headerLen = sizeof(struct iphdr) + sizeof(struct icmphdr);
-  for(mtu=maxMTU;mtu>headerLen;mtu--)
-  {
-    int mtuResult = checkMTU(dstIp, mtu);
-    if(mtuResult == PING_MTU_OK)
-      return mtu;
-  }
-  return GENERAL_PROBLEM;
-}
+  "Ping MTU ok",
+  "Ping packet too big",
+  "Ping forbidden",
+  "General problem"
+};
 
-
-
-#else
-
-
-
-int interval(const char* dstIp, unsigned int minMTU, unsigned int maxMTU)
+const char* getReturnValueText(int returnValue)
 {
-  int lowerMTUResult = checkMTU(dstIp, minMTU);
-  int upperMTUResult = checkMTU(dstIp, maxMTU);
-
-  if(lowerMTUResult == GENERAL_PROBLEM)
-    return -2;
-  if(upperMTUResult == GENERAL_PROBLEM)
-    return -2;
-
-  if(lowerMTUResult == PING_MTU_TOO_BIG &&
-     upperMTUResult == PING_MTU_TOO_BIG)
-    return -1;
-
-  if(lowerMTUResult == PING_MTU_OK &&
-     upperMTUResult == PING_MTU_OK)
-    return -1;
-
-  if(minMTU+1 == maxMTU)
-    return minMTU;
-
-  int centerMTU = (minMTU + maxMTU) / 2;
-  int part1 = interval(dstIp, minMTU, centerMTU);
-  if(part1 > 0)
-    return part1;
-  int part2 = interval(dstIp, centerMTU, maxMTU);
-  if(part2 > 0)
-    return part2;
-  return -1;
+  return returnValueText[returnValue];
 }
-
-
-
-/**
- * Searches the MTU by decreasing packet size and sending pings to a host.
- * @param dstIp The ip of the host.
- * @param maxMTU The MTU to decrease from.
- * @return The MTU or -1 when an error occurs.
- */
-int searchMTU(const char* dstIp, unsigned int maxMTU)
-{
-  int headerLen =  sizeof(struct iphdr) + sizeof(struct icmphdr);
-  return interval(dstIp, headerLen+1, maxMTU);
-}
-
-#endif

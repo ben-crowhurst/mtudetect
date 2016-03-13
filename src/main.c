@@ -20,8 +20,6 @@
  * @file main.c
  *
  * @brief Implementation of the main application
- * 
- * @author Tim Leerhoff <tleerhof@web.de>, (C) 2016
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -36,25 +34,12 @@
  */
 int main( int argc, char *argv[] )
 {
-  if( argc != 2 )
+  if( argc != 3 )
   {
-    fprintf(stderr, "Usage: mtudetect <ip>\n");
+    fprintf(stderr, "Usage: mtudetect <ip> <mtu>\n");
     return 1;
   }
-#ifndef PERFORMANCE
-  int result = searchMTU(argv[1], 1500);
-#else
-  int result = searchMTU(argv[1], 65536);
-#endif
-  if(result < 0)
-  {
-    fprintf(stderr, "An error occurred.\n");
-    return 1;
-  }
-  else
-  {
-    fprintf(stdout, "%d\n", result);
-    return 0;
-  }
+  int result = checkMTU(argv[1], atoi(argv[2]));
+  fprintf(stdout, "Result: %s(%d)\n", getReturnValueText(result), result);
+  return result;
 }
-

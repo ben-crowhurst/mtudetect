@@ -24,11 +24,13 @@
 #ifndef __MTUDETECT_H_
 #define __MTUDETECT_H_
 
-#define GENERAL_PROBLEM -1
 #define PING_MTU_OK 0
 #define PING_MTU_TOO_BIG 1
+#define PING_FORBIDDEN 2
+#define GENERAL_PROBLEM 3
 
 int checkMTU(const char* dstIp, unsigned int packetLen);
 int searchMTU(const char* dstIp, unsigned int maxMTU);
+const char* getReturnValueText(int returnValue);
 
 #endif /*__MTUDETECT_H_*/
