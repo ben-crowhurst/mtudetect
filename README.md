@@ -31,8 +31,8 @@ Prints on stdout:
 
 When subcode 13 is detected the result-value is:
 
-        type:3, code:13, packetlength:...
-        Result: Ping forbidden(2)
+	type:3, code:13, packetlength:...
+	Result: Ping forbidden(2)
 	Result=2	
 
 
