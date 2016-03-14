@@ -173,12 +173,20 @@ void daemonize(struct settings_t* settings)
 }
 
 
-
+int terminate = 0;
 void hupHandler(int signum)
 {
   fprintf(stdout, "kill hup");
+  terminate = 1;
 }
 
+void doDetection()
+{
+  while(!terminate)
+  {
+    sleep(10);
+  }
+}
 
 
 /**
@@ -226,9 +234,7 @@ int main( int argc, char *argv[] )
   //int result = checkMTU(argv[1], atoi(argv[2]));
   //fprintf(stdout, "Result: %s(%d)\n", getReturnValueText(result), result);
 
-  fprintf(stdout, "TEST");
-
-  //sleep(1000);
+  doDetection();
 
   signal(SIGHUP, oldHupHandler);
 
