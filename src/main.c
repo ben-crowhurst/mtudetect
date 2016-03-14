@@ -27,6 +27,8 @@
 
 #include <syslog.h>
 
+#include <signal.h>
+
 #include <sys/types.h>		// for umask
 #include <sys/stat.h>
 #include <sys/resource.h> 	// for rlimit
@@ -171,6 +173,14 @@ void daemonize(struct settings_t* settings)
 }
 
 
+
+void hupHandler(int signum)
+{
+  fprintf(stdout, "kill hup");
+}
+
+
+
 /**
  * The main programm
  * @param argc The number of commandline parameters including the programname.
@@ -208,6 +218,8 @@ int main( int argc, char *argv[] )
     daemonize(&settings);
   }
 
+  __sighandler_t oldHupHandler = signal(SIGHUP, &hupHandler);
+
   openlog(argv[0], LOG_CONS, LOG_DAEMON);
   syslog(LOG_INFO, "Initialized daemon");
 
@@ -217,6 +229,8 @@ int main( int argc, char *argv[] )
   fprintf(stdout, "TEST");
 
   //sleep(1000);
+
+  signal(SIGHUP, oldHupHandler);
 
   if(close(settings.sock) < 0)
   {
