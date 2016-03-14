@@ -8,8 +8,8 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -fPIC -D_GNU_SOURCE -o $@ $^
 
-mtudetect.o: mtudetect.h
-main.o: mtudetect.h
+mtudetect.o: mtudetect.h settings.h
+main.o: mtudetect.h settings.h
 
 .PHONY: clean 
 clean:

@@ -23,6 +23,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include <syslog.h>
 
@@ -39,7 +40,10 @@
 #include <arpa/inet.h>          // Funktionen wie inet_addr()
 #include <netinet/in.h>         // IP Protokolle, sockaddr_in Struktur und Funktionen wie htons()
 
+#include "settings.h"
 #include "mtudetect.h"
+
+
 
 /**
  * Prints the last error and exits the application.
@@ -50,6 +54,7 @@ void quitError(const char* mesg)
   syslog(LOG_ERR, "%s (%d)", mesg, errno); 
   exit(1);
 }
+
 
 void closeAllFiledescriptors()
 {
@@ -70,8 +75,10 @@ void closeAllFiledescriptors()
   }
 }
 
+
 void redirectStdInOutErr()
 {
+  closeAllFiledescriptors();
   int fd0 = open("/dev/null", O_RDWR);
   int fd1 = dup(0);
   int fd2 = dup(0);
@@ -81,36 +88,53 @@ void redirectStdInOutErr()
   }
 }
 
-/**
- * The main programm
- * @param argc The number of commandline parameters including the programname.
- * @param argv An array of commandline parameters.
- * @return The exitcode. 0 if everything ok.
- */
-int main( int argc, char *argv[] )
+
+void printUsage()
 {
-  if( argc != 3 )
+  fprintf(stderr, "Usage: mtudetect <ip> <mtu>\n");
+}
+
+
+void parseOptions(int argc, char *argv[], struct settings_t* settings )
+{
+  int c;
+  while ((c = getopt (argc, argv, "dm:s:")) != -1)
   {
-    fprintf(stderr, "Usage: mtudetect <ip> <mtu>\n");
-    return 1;
+    switch (c)
+    {
+      case 'd':
+        settings->daemonize = 0;
+        break;
+      case 'm':
+        settings->check_mtu = atoi(optarg);
+        break;
+      case 's':
+        settings->set_mtu = atoi(optarg);
+        break;
+      case '?':
+        printUsage();
+        abort();
+        break;
+      default:
+        abort();
+    }
   }
 
-  umask(0);
-  closeAllFiledescriptors();
-  redirectStdInOutErr();
+  if(settings->check_mtu == 0)
+    settings->check_mtu = 1426;
+  if(settings->set_mtu == 0)
+    settings->set_mtu = 1312;
 
-  int sock = socket( AF_INET, SOCK_RAW, IPPROTO_ICMP );
-  if(sock == -1 )
+  if(!settings->daemonize)
   {
-    quitError("socket");
+    fprintf(stdout, "check mtu = %d\n", settings->check_mtu);
+    fprintf(stdout, "set mtu = %d\n", settings->set_mtu);
   }
+}
 
-  int one = 1;
-  if(setsockopt( sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one) ) != 0 )
-  {
-    quitError("setsocketopt");
-  }
 
+void daemonize(struct settings_t* settings)
+{
   // Become a normal user
   if(seteuid(1) < 0)
   {
@@ -132,37 +156,74 @@ int main( int argc, char *argv[] )
   else
   {
     // parent
-    close(sock);
+    close(settings->sock);
     exit(0);
   }
 
-
   // Create a new session and process group...
   setsid();
-
 
   // Change directory to root not to block other filesystems
   if(chdir("/") < 0)
   {
     quitError("chdir");
   }
+}
 
+
+/**
+ * The main programm
+ * @param argc The number of commandline parameters including the programname.
+ * @param argv An array of commandline parameters.
+ * @return The exitcode. 0 if everything ok.
+ */
+int main( int argc, char *argv[] )
+{
+  struct settings_t settings;
+  settings.daemonize = 1;
+
+  parseOptions(argc, argv, &settings);
+
+  umask(0);
+
+  if(settings.daemonize)
+  {
+    redirectStdInOutErr();
+  }
+
+  settings.sock = socket( AF_INET, SOCK_RAW, IPPROTO_ICMP );
+  if(settings.sock == -1 )
+  {
+    quitError("socket");
+  }
+
+  int one = 1;
+  if(setsockopt( settings.sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one) ) != 0 )
+  {
+    quitError("setsocketopt");
+  }
+
+  if(settings.daemonize)
+  {
+    daemonize(&settings);
+  }
 
   openlog(argv[0], LOG_CONS, LOG_DAEMON);
   syslog(LOG_INFO, "Initialized daemon");
 
-  if(close(sock) < 0)
+  //int result = checkMTU(argv[1], atoi(argv[2]));
+  //fprintf(stdout, "Result: %s(%d)\n", getReturnValueText(result), result);
+
+  fprintf(stdout, "TEST");
+
+  //sleep(1000);
+
+  if(close(settings.sock) < 0)
   {
     quitError("close");
   }
 
-  int result = checkMTU(argv[1], atoi(argv[2]));
-  fprintf(stdout, "Result: %s(%d)\n", getReturnValueText(result), result);
-
-
-  //sleep(1000);
-
   syslog(LOG_INFO, "Shutdown daemon");
   closelog();
-  exit(result);
+  exit(0);
 }
