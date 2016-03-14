@@ -6,6 +6,7 @@ struct settings_t {
   int daemonize;
   int check_mtu;
   int set_mtu;
+  int interval;
 };
 
 #endif //__SETTINGS_H__

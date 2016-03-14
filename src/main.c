@@ -23,6 +23,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>		// for memset
 #include <ctype.h>
 
 #include <syslog.h>
@@ -100,7 +101,7 @@ void printUsage()
 void parseOptions(int argc, char *argv[], struct settings_t* settings )
 {
   int c;
-  while ((c = getopt (argc, argv, "dm:s:")) != -1)
+  while ((c = getopt (argc, argv, "dm:s:i:")) != -1)
   {
     switch (c)
     {
@@ -112,6 +113,9 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
         break;
       case 's':
         settings->set_mtu = atoi(optarg);
+        break;
+      case 'i':
+        settings->interval = atoi(optarg);
         break;
       case '?':
         printUsage();
@@ -126,11 +130,14 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
     settings->check_mtu = 1426;
   if(settings->set_mtu == 0)
     settings->set_mtu = 1312;
+  if(settings->interval == 0)
+    settings->interval = 10;
 
   if(!settings->daemonize)
   {
     fprintf(stdout, "check mtu = %d\n", settings->check_mtu);
     fprintf(stdout, "set mtu = %d\n", settings->set_mtu);
+    fprintf(stdout, "interval = %ds\n", settings->interval);
   }
 }
 
@@ -180,11 +187,14 @@ void hupHandler(int signum)
   terminate = 1;
 }
 
-void doDetection()
+
+void doDetection(struct settings_t* settings)
 {
   while(!terminate)
   {
-    sleep(10);
+    fprintf(stdout, "Checking mtu...");
+    syslog(LOG_INFO, "Checking MTU");
+    sleep(settings->interval);
   }
 }
 
@@ -198,6 +208,7 @@ void doDetection()
 int main( int argc, char *argv[] )
 {
   struct settings_t settings;
+  memset( &settings, 0, sizeof(struct settings_t));
   settings.daemonize = 1;
 
   parseOptions(argc, argv, &settings);
@@ -234,7 +245,7 @@ int main( int argc, char *argv[] )
   //int result = checkMTU(argv[1], atoi(argv[2]));
   //fprintf(stdout, "Result: %s(%d)\n", getReturnValueText(result), result);
 
-  doDetection();
+  doDetection(&settings);
 
   signal(SIGHUP, oldHupHandler);
 
