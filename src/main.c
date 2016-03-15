@@ -45,7 +45,7 @@
 
 #include "settings.h"
 #include "mtudetect.h"
-
+#include "ping.h"
 
 
 /**
@@ -53,8 +53,8 @@
  */
 void quitError(const char* mesg)
 {
-//  perror(mesg);
-  syslog(LOG_ERR, "%s (%d)", mesg, errno); 
+  fprintf(stderr, "%s: %s (%d)\n", mesg, strerror(errno), errno);
+  syslog(LOG_ERR, "%s: %s (%d)\n", mesg, strerror(errno), errno); 
   exit(1);
 }
 
@@ -94,14 +94,14 @@ void redirectStdInOutErr()
 
 void printUsage()
 {
-  fprintf(stderr, "Usage: mtudetect <ip> <mtu>\n");
+  fprintf(stderr, "Usage: mtudetect <-d> <-m> <-s> <-i> <-t>\n");
 }
 
 
 void parseOptions(int argc, char *argv[], struct settings_t* settings )
 {
   int c;
-  while ((c = getopt (argc, argv, "dm:s:i:")) != -1)
+  while ((c = getopt (argc, argv, "dm:s:i:r:t:")) != -1)
   {
     switch (c)
     {
@@ -117,6 +117,15 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
       case 'i':
         settings->interval = atoi(optarg);
         break;
+      case 't':
+        if(optarg != NULL) 
+        {
+          snprintf(settings->targetIp, sizeof(settings->targetIp), "%s", optarg);
+        }
+        break;
+      case 'r':
+        settings->response_timeout = atoi(optarg);
+        break;
       case '?':
         printUsage();
         abort();
@@ -126,18 +135,24 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
     }
   }
 
-  if(settings->check_mtu == 0)
+  if(settings->check_mtu <= 0)
     settings->check_mtu = 1426;
-  if(settings->set_mtu == 0)
+  if(settings->set_mtu <= 0)
     settings->set_mtu = 1312;
-  if(settings->interval == 0)
+  if(settings->interval <= 0)
     settings->interval = 10;
+  if(settings->targetIp[0] == 0)
+    snprintf(settings->targetIp, sizeof(settings->targetIp), "8.8.8.8");
+  if(settings->response_timeout <= 0)
+    settings->response_timeout = 1;
 
   if(!settings->daemonize)
   {
     fprintf(stdout, "check mtu = %d\n", settings->check_mtu);
     fprintf(stdout, "set mtu = %d\n", settings->set_mtu);
     fprintf(stdout, "interval = %ds\n", settings->interval);
+    fprintf(stdout, "targetIp = %s\n", settings->targetIp);
+    fprintf(stdout, "response timeout = %d\n", settings->response_timeout);
   }
 }
 
@@ -183,17 +198,36 @@ void daemonize(struct settings_t* settings)
 int terminate = 0;
 void hupHandler(int signum)
 {
-  fprintf(stdout, "kill hup");
+  fprintf(stdout, "Hang up !\n");
+  terminate = 1;
+}
+
+
+void intHandler(int signum)
+{
+  fprintf(stdout, "Interrupted !\n");
   terminate = 1;
 }
 
 
 void doDetection(struct settings_t* settings)
 {
+  int result;
   while(!terminate)
   {
-    fprintf(stdout, "Checking mtu...");
-    syslog(LOG_INFO, "Checking MTU");
+    const char* format = "Checking MTU=%d\n";
+    fprintf(stdout, format, settings->check_mtu);
+    syslog(LOG_INFO, format, settings->check_mtu);
+
+    result = sendPing(settings->sock, settings->targetIp, settings->check_mtu);
+    if(result != 0)
+      fprintf(stderr, "%s\n", strerror(result));
+
+    int type = -1, code = -1;
+    result = receivePingAnswer(settings->sock, settings->response_timeout, &type, &code);
+    if(result != 0)  
+      fprintf(stderr, "%s\n", strerror(result));
+
     sleep(settings->interval);
   }
 }
@@ -227,9 +261,17 @@ int main( int argc, char *argv[] )
   }
 
   int one = 1;
-  if(setsockopt( settings.sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one) ) != 0 )
+  if(setsockopt(settings.sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one) ) != 0)
   {
     quitError("setsocketopt");
+  }
+
+  struct timeval tv;
+  tv.tv_sec = settings.response_timeout;
+  tv.tv_usec = 0;
+  if(setsockopt(settings.sock, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
+  {
+    quitError("receive timeout");
   }
 
   if(settings.daemonize)
@@ -237,17 +279,16 @@ int main( int argc, char *argv[] )
     daemonize(&settings);
   }
 
-  __sighandler_t oldHupHandler = signal(SIGHUP, &hupHandler);
-
   openlog(argv[0], LOG_CONS, LOG_DAEMON);
   syslog(LOG_INFO, "Initialized daemon");
 
-  //int result = checkMTU(argv[1], atoi(argv[2]));
-  //fprintf(stdout, "Result: %s(%d)\n", getReturnValueText(result), result);
+  __sighandler_t oldHupHandler = signal(SIGHUP, &hupHandler);
+  __sighandler_t oldIntHandler = signal(SIGINT, &intHandler);
 
   doDetection(&settings);
 
   signal(SIGHUP, oldHupHandler);
+  signal(SIGINT, oldIntHandler);
 
   if(close(settings.sock) < 0)
   {
