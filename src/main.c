@@ -59,6 +59,15 @@ void quitError(const char* mesg)
 }
 
 
+void quitErrorMessage(const char* mesg)
+{
+  fprintf(stderr, " %s\n", mesg);
+  syslog(LOG_ERR, "%s\n", mesg);
+  exit(1);
+}
+
+
+
 void closeAllFiledescriptors()
 {
   struct rlimit rl;
@@ -94,7 +103,28 @@ void redirectStdInOutErr()
 
 void printUsage()
 {
-  fprintf(stderr, "Usage: mtudetect <-d> <-m send_mtu> <-s set_mtu> <-i interval> <-r receive-timeout>  <-t target-ip>\n");
+  fprintf(stderr, "Usage: mtudetect <-d> <-m send_mtu> <-s set_mtu> <-i interval> <-r receive-timeout> <-t target-ip>\n");
+}
+
+
+int readFromProcessOutput( const char* cmd, char* buffer, size_t bufferSize )
+{
+  memset(buffer, 0, bufferSize);
+  FILE *input = popen (cmd, "r");
+  if(!input)
+  {
+    fprintf(stderr, "Cannot open process '%s'.\n", cmd);
+    return EXIT_FAILURE;
+  }
+  size_t size = fread(buffer, bufferSize, 1, input);
+  if(size != 0 && size != bufferSize)
+  {
+    pclose(input);
+    fprintf(stderr, "Cannot read from '%s' %d != %d\n", cmd, (int)bufferSize, (int)size);
+    return EXIT_FAILURE;
+  }
+  pclose(input);
+  return EXIT_SUCCESS;
 }
 
 
@@ -148,11 +178,20 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
 
   if(!settings->daemonize)
   {
-    fprintf(stdout, "check mtu = %d\n", settings->check_mtu);
-    fprintf(stdout, "set mtu = %d\n", settings->set_mtu);
+    char buffer[40];
+    if(readFromProcessOutput("uci get fastd.mesh_vpn.mtu", buffer, sizeof(buffer)-1) != 0)
+    {
+      quitErrorMessage("Cannot detect fastd-mtu, further execution makes no sense. Giving up !");
+    }
+
+    fprintf(stdout, "fastd-mtu = %d\n", atoi(buffer));
+    settings->check_mtu = atoi(buffer);
+
+    fprintf(stdout, "set mtu = %d (if fastd-mtu has problems)\n", settings->set_mtu);
     fprintf(stdout, "interval = %ds\n", settings->interval);
     fprintf(stdout, "targetIp = %s\n", settings->targetIp);
     fprintf(stdout, "response timeout = %d\n", settings->response_timeout);
+    fprintf(stdout, "\n");
   }
 }
 
@@ -218,6 +257,47 @@ void logError(int error)
 }
 
 
+int changeMtuInFastd(struct settings_t* settings)
+{
+  char cmd[80];
+
+  snprintf(cmd, sizeof(cmd), "uci set fastd.mesh_vpn.mtu=%d", settings->set_mtu);
+  if(system(cmd) != 0)
+  {
+    logError(errno);
+    return EXIT_FAILURE;
+  }
+
+  snprintf(cmd, sizeof(cmd), "uci commit");
+  if(system(cmd) != 0)
+  {
+    logError(errno);
+    return EXIT_FAILURE;
+  }
+
+  snprintf(cmd, sizeof(cmd), "/etc/init.d/fastd restart");
+  if(system(cmd) != 0)
+  {
+    logError(errno);
+    return EXIT_FAILURE;
+  }
+
+  if(readFromProcessOutput("uci get fastd.mesh_vpn.mtu", cmd, sizeof(cmd)-1) != 0)
+  {
+    quitErrorMessage("Cannot detect fastd-mtu, further execution makes no sense. Giving up !");
+  }
+  return EXIT_SUCCESS;
+}
+
+
+void detectAdministrativelyProhibited(struct settings_t* settings, int type, int code)
+{
+  if(type != 3 || code != 13)
+    return;
+  changeMtuInFastd(settings);
+}
+
+
 void doDetection(struct settings_t* settings)
 {
   int result;
@@ -233,8 +313,10 @@ void doDetection(struct settings_t* settings)
 
     int type = -1, code = -1;
     result = receivePingAnswer(settings->sock, settings->response_timeout, &type, &code);
-    if(result != 0)  
+    if(result != 0)
       logError(result);
+
+    detectAdministrativelyProhibited(settings, type, code);
 
     sleep(settings->interval);
   }
