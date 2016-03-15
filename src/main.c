@@ -94,7 +94,7 @@ void redirectStdInOutErr()
 
 void printUsage()
 {
-  fprintf(stderr, "Usage: mtudetect <-d> <-m> <-s> <-i> <-t>\n");
+  fprintf(stderr, "Usage: mtudetect <-d> <-m send_mtu> <-s set_mtu> <-i interval> <-r receive-timeout>  <-t target-ip>\n");
 }
 
 
@@ -196,6 +196,7 @@ void daemonize(struct settings_t* settings)
 
 
 int terminate = 0;
+
 void hupHandler(int signum)
 {
   fprintf(stdout, "Hang up !\n");
@@ -210,6 +211,13 @@ void intHandler(int signum)
 }
 
 
+void logError(int error)
+{
+  fprintf(stdout, "%s (%d)\n", strerror(error), error);
+  syslog(LOG_INFO, "%s (%d)\n", strerror(error), error);
+}
+
+
 void doDetection(struct settings_t* settings)
 {
   int result;
@@ -221,12 +229,12 @@ void doDetection(struct settings_t* settings)
 
     result = sendPing(settings->sock, settings->targetIp, settings->check_mtu);
     if(result != 0)
-      fprintf(stderr, "%s\n", strerror(result));
+      logError(result);
 
     int type = -1, code = -1;
     result = receivePingAnswer(settings->sock, settings->response_timeout, &type, &code);
     if(result != 0)  
-      fprintf(stderr, "%s\n", strerror(result));
+      logError(result);
 
     sleep(settings->interval);
   }
@@ -280,7 +288,7 @@ int main( int argc, char *argv[] )
   }
 
   openlog(argv[0], LOG_CONS, LOG_DAEMON);
-  syslog(LOG_INFO, "Initialized daemon");
+  syslog(LOG_INFO, "Initialized daemon, starting check...");
 
   __sighandler_t oldHupHandler = signal(SIGHUP, &hupHandler);
   __sighandler_t oldIntHandler = signal(SIGINT, &intHandler);

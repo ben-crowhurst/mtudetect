@@ -60,21 +60,21 @@ static unsigned short calcCheckSum( const char* checkSumData, unsigned int byteL
       if(hasPadding)
       {
         unsigned short sFirstByte = (unsigned short)(*checkSumData++);
-        unsigned short sSecondByte = (unsigned short)(0) << 8;
+        unsigned short sSecondByte = (unsigned short)(0);
         value = sFirstByte | sSecondByte;
       }
       else
       {
         unsigned short sFirstByte = (unsigned short)(*checkSumData++);
-        unsigned short sSecondByte = (unsigned short)(*checkSumData++) << 8;
-        value = sFirstByte | sSecondByte;
+        unsigned short sSecondByte = (unsigned short)(*checkSumData++);
+        value = (sFirstByte << 8) | sSecondByte;
       }
     }
     else
     {
       unsigned short sFirstByte = (unsigned short)(*checkSumData++);
-      unsigned short sSecondByte = (unsigned short)(*checkSumData++) << 8;
-      value = sFirstByte | sSecondByte;
+      unsigned short sSecondByte = (unsigned short)(*checkSumData++);
+      value = (sFirstByte << 8) | sSecondByte;
     }
     checkSum += value;
   }
@@ -143,7 +143,7 @@ int sendPing( int sock, const char* dstIp, unsigned int packetLen )
   fillInTestData(payload, payloadLen);
 
   unsigned short sCheckSum = calcCheckSum( (const char*)icmpHeader, payloadLen + sizeof(struct icmphdr) );
-  icmpHeader->checksum = sCheckSum;
+  icmpHeader->checksum = htons(sCheckSum);
 
   struct sockaddr_in dst;
   memset( &dst, 0, sizeof(struct sockaddr_in));
@@ -193,19 +193,7 @@ int receivePingAnswer(int sock, int waitTime, int* type, int* code)
 {
   int errCode = 0;
   unsigned char *packet = (unsigned char *)malloc(RECEIVE_SIZE);
-/*
-  struct timeval tv;
-  tv.tv_sec = 0;
-  tv.tv_usec = waitTime;
-  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) 
-  {
-    errCode = errno;
-    perror("Error.receive: timeout");
-    free(packet);
-    close(sock);
-    return errCode;
-  }
-*/
+
   struct sockaddr saddr;
   socklen_t saddr_size = 0;
 
@@ -224,5 +212,5 @@ int receivePingAnswer(int sock, int waitTime, int* type, int* code)
   }
 
   free(packet);
-  return errCode;
+  return 0;
 }
