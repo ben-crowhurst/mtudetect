@@ -44,7 +44,6 @@
 #include <netinet/in.h>         // IP Protokolle, sockaddr_in Struktur und Funktionen wie htons()
 
 #include "settings.h"
-#include "mtudetect.h"
 #include "ping.h"
 
 
