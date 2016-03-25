@@ -182,8 +182,16 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
     }
   }
 
-  if(settings->check_mtu <= 0)
-    settings->check_mtu = 1426;
+  char buffer[40];
+  if(readFromProcessOutput("uci get fastd.mesh_vpn.mtu", buffer, sizeof(buffer)-1) != 0)
+  {
+    quitErrorMessage("Cannot detect fastd-mtu, further execution makes no sense. Giving up !");
+  }
+  int fastd_mtu = atoi(buffer);
+
+
+  if(settings->check_mtu <= 0) 
+    settings->check_mtu = fastd_mtu;
   if(settings->set_mtu <= 0)
     settings->set_mtu = 1312;
   if(settings->interval <= 0)
@@ -195,6 +203,8 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
   if(settings->response_timeout <= 0)
     settings->response_timeout = 1;
 
+
+
   if(!settings->daemonize)
   {
     char buffer[40];
@@ -204,9 +214,7 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
     }
 
     fprintf(stdout, "fastd-server = %s\n", settings->fastdIp);
-    fprintf(stdout, "fastd-mtu = %d\n", atoi(buffer));
-    settings->check_mtu = atoi(buffer);
-
+    fprintf(stdout, "fastd-mtu = %d\n", fastd_mtu);
     fprintf(stdout, "check mtu = %d\n", settings->check_mtu);
     fprintf(stdout, "set mtu = %d (if fastd-mtu has problems)\n", settings->set_mtu);
     fprintf(stdout, "interval = %ds\n", settings->interval);
