@@ -102,7 +102,16 @@ void redirectStdInOutErr()
 
 void printUsage()
 {
-  fprintf(stderr, "Usage: mtudetect <-d> <-m send_mtu> <-s set_mtu> <-i interval> <-r receive-timeout> <-t target-ip>\n");
+  fprintf(stderr, "Usage: mtudetect <-d> <-y> <-m send_mtu> <-s set_mtu> <-i interval> <-r receive-timeout> <-t target-ip> <-f fastd-ip>\n\n");
+  fprintf(stderr, "\t-d\t\tdebug, don't detach process\n");
+  fprintf(stderr, "\t-y\t\tsimulate changes\n");
+  fprintf(stderr, "\t-m <mtu>\tthe MTU to test\n");
+  fprintf(stderr, "\t-s <mtu>\tthe MTU to set\n");
+  fprintf(stderr, "\t-i <interval>\tthe test-interval\n");
+  fprintf(stderr, "\t-r <timeout>\tthe receive-timeout for ping-response\n");
+  fprintf(stderr, "\t-t <target-ip>\tthe machine to ping\n");
+  fprintf(stderr, "\t-f <fastd-ip>\tthe fastd-ip to use\n");
+  fprintf(stderr, "\n");
 }
 
 
@@ -130,7 +139,7 @@ int readFromProcessOutput( const char* cmd, char* buffer, size_t bufferSize )
 void parseOptions(int argc, char *argv[], struct settings_t* settings )
 {
   int c;
-  while ((c = getopt (argc, argv, "dm:s:i:r:t:")) != -1)
+  while ((c = getopt (argc, argv, "yfdm:s:i:r:t:")) != -1)
   {
     switch (c)
     {
@@ -152,15 +161,24 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
           snprintf(settings->targetIp, sizeof(settings->targetIp), "%s", optarg);
         }
         break;
+      case 'f':
+        if(optarg != NULL) 
+        {
+          snprintf(settings->fastdIp, sizeof(settings->fastdIp), "%s", optarg);
+        }
+        break;
       case 'r':
         settings->response_timeout = atoi(optarg);
         break;
+      case 'y':
+        settings->simulate = 1;
+        break;
       case '?':
         printUsage();
-        abort();
+        exit(1);
         break;
       default:
-        abort();
+        exit(1);
     }
   }
 
@@ -171,7 +189,9 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
   if(settings->interval <= 0)
     settings->interval = 10;
   if(settings->targetIp[0] == 0)
-    snprintf(settings->targetIp, sizeof(settings->targetIp), "8.8.8.8");
+    snprintf(settings->targetIp, sizeof(settings->targetIp), "127.0.0.1");
+  if(settings->fastdIp[0] == 0)
+    snprintf(settings->fastdIp, sizeof(settings->fastdIp), "127.0.0.1");
   if(settings->response_timeout <= 0)
     settings->response_timeout = 1;
 
@@ -183,6 +203,7 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
       quitErrorMessage("Cannot detect fastd-mtu, further execution makes no sense. Giving up !");
     }
 
+    fprintf(stdout, "fastd-server = %s\n", settings->fastdIp);
     fprintf(stdout, "fastd-mtu = %d\n", atoi(buffer));
     settings->check_mtu = atoi(buffer);
 
@@ -190,6 +211,7 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
     fprintf(stdout, "interval = %ds\n", settings->interval);
     fprintf(stdout, "targetIp = %s\n", settings->targetIp);
     fprintf(stdout, "response timeout = %d\n", settings->response_timeout);
+    fprintf(stdout, "simulate = %d\n", settings->simulate);
     fprintf(stdout, "\n");
   }
 }
@@ -259,6 +281,13 @@ void logError(int error)
 int changeMtuInFastd(struct settings_t* settings)
 {
   char cmd[80];
+
+  if(settings->simulate) {
+    fprintf(stderr, "* Changes only simulated.");
+    fprintf(stderr, "* -> Changing mtu in fastd to %d", settings->set_mtu);
+    fprintf(stderr, "* -> Restarting fastd.");
+    return EXIT_SUCCESS;
+  }
 
   snprintf(cmd, sizeof(cmd), "uci set fastd.mesh_vpn.mtu=%d", settings->set_mtu);
   if(system(cmd) != 0)
