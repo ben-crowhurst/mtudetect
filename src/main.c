@@ -207,6 +207,7 @@ void parseOptions(int argc, char *argv[], struct settings_t* settings )
     fprintf(stdout, "fastd-mtu = %d\n", atoi(buffer));
     settings->check_mtu = atoi(buffer);
 
+    fprintf(stdout, "check mtu = %d\n", settings->check_mtu);
     fprintf(stdout, "set mtu = %d (if fastd-mtu has problems)\n", settings->set_mtu);
     fprintf(stdout, "interval = %ds\n", settings->interval);
     fprintf(stdout, "targetIp = %s\n", settings->targetIp);
@@ -283,13 +284,14 @@ int changeMtuInFastd(struct settings_t* settings)
   char cmd[80];
 
   if(settings->simulate) {
-    fprintf(stderr, "* Changes only simulated.");
-    fprintf(stderr, "* -> Changing mtu in fastd to %d", settings->set_mtu);
-    fprintf(stderr, "* -> Restarting fastd.");
+    fprintf(stderr, "* Changes only simulated.\n");
+    fprintf(stderr, "* -> Changing mtu in fastd to %d\n", settings->set_mtu);
+    fprintf(stderr, "* -> Restarting fastd.\n");
     return EXIT_SUCCESS;
   }
 
   snprintf(cmd, sizeof(cmd), "uci set fastd.mesh_vpn.mtu=%d", settings->set_mtu);
+  fprintf(stdout, "%s\n", cmd);
   if(system(cmd) != 0)
   {
     logError(errno);
@@ -297,6 +299,7 @@ int changeMtuInFastd(struct settings_t* settings)
   }
 
   snprintf(cmd, sizeof(cmd), "uci commit");
+  fprintf(stdout, "%s\n", cmd);
   if(system(cmd) != 0)
   {
     logError(errno);
@@ -304,6 +307,7 @@ int changeMtuInFastd(struct settings_t* settings)
   }
 
   snprintf(cmd, sizeof(cmd), "/etc/init.d/fastd restart");
+  fprintf(stdout, "%s\n", cmd);
   if(system(cmd) != 0)
   {
     logError(errno);
