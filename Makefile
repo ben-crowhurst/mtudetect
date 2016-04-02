@@ -13,7 +13,7 @@ define Package/gluon-mtudetect
   SECTION:=gluon
   CATEGORY:=Gluon
   TITLE:=Detects the MTU by pinging a given host
-  DEPENDS:=+gluon-core
+  DEPENDS:=
 endef
 
 define Build/Prepare

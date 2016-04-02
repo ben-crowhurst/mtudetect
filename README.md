@@ -19,21 +19,19 @@ Execution
 
 As root execute the following command.
 
-	# ./mtudetect 8.8.8.8 1426
-	# echo "Result=$?"
+	# mtudetect -?
 
-Prints on stdout: 
+	Usage: mtudetect <-d> <-y> <-m send_mtu> <-s set_mtu> <-i interval> <-r receive-timeout> <-t target-ip> <-f fastd-ip>
 
-	type:0, code:0, packetlength:1426
-	Result: Ping MTU ok(0)
-	Result=0
+	        -d              debug, don't detach process
+	        -y              simulate changes
+	        -m <mtu>        the MTU to test
+	        -s <mtu>        the MTU to set
+	        -i <interval>   the test-interval
+	        -r <timeout>    the receive-timeout for ping-response
+	        -t <target-ip>  the machine to ping
+	        -f <fastd-ip>   the fastd-ip to use
 
-
-When subcode 13 is detected the result-value is:
-
-	type:3, code:13, packetlength:...
-	Result: Ping forbidden(2)
-	Result=2	
 
 
 License
